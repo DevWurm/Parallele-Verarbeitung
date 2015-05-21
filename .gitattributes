@@ -5,4 +5,4 @@
 *.jpg filter=lfs diff=lfs merge=lfs -crlf
 *.dia filter=lfs diff=lfs merge=lfs -crlf
 
-*.rb linguist-language=
+*.rb linguist-language=Other
