@@ -1,0 +1,145 @@
+\documentclass[a4paper, 12pt]{report}
+
+% == Packages ==
+
+% Sprache
+\usepackage[ngerman]{babel}
+
+% Text und Schrift
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{url}
+
+% CSV
+\usepackage{csvsimple}
+
+% Source Code
+\usepackage{listings}
+\usepackage[usenames,dvipsnames]{xcolor}
+
+% Header
+\usepackage{fancyhdr}
+
+% Grafik
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{transparent}
+
+% Verzeichnisse
+\usepackage{tocloft}
+\usepackage[printonlyused]{acronym}
+
+% == Source Code ==
+
+\lstset{ %
+  backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}
+  basicstyle=\scriptsize,        % the size of the fonts that are used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{Green},    % comment style
+  deletekeywords={...},            % if you want to delete keywords from the given language
+  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+  keywordstyle=\color{blue},       % keyword style
+  language=C++,                 % the language of the code
+  otherkeywords={*,...},            % if you want to add more keywords to the set
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{Gray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  stepnumber=1,                    % the step between two line-numbers
+  stringstyle=\color{LimeGreen},     % string literal style
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  tabsize=2,                       % sets default tabsize to 2 spaces
+}
+
+% == Metadaten ==
+\title{Komplexe Leistung}
+\author{DevWurm}
+\date{\today}
+
+% == Kopf- und Fußzeile == 
+\pagestyle{fancy}
+
+\lhead{\small\rightmark}
+\rhead{\leftmark}
+
+\cfoot{\thepage}
+
+\tocloftpagestyle{empty} % Keine Seitenzahl im Inhaltsverzeichnis
+
+% == Gliederungstiefe ==
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
+
+% == Literaturverzeichnis ==
+\bibliographystyle{unsrt}
+
+% == Listen ==
+\usepackage{enumitem}
+\setlistdepth{7}
+\newlist{deepitemize}{itemize}{7}
+\setlist[deepitemize,1]{label=\textbullet}
+\setlist[deepitemize,2]{label=\textbullet}
+\setlist[deepitemize,3]{label=\textbullet}
+\setlist[deepitemize,4]{label=\textbullet}
+\setlist[deepitemize,5]{label=\textbullet}
+\setlist[deepitemize,6]{label=\textbullet}
+\setlist[deepitemize,7]{label=\textbullet} 
+
+
+% == Dokument ==
+\begin{document}
+
+\pagestyle{empty} % Titelseite
+\include{titelseite}
+
+\addcontentsline{toc}{chapter}{Inhaltsverzeichnis}
+\tableofcontents % Inhaltsverzeichnis
+
+\addcontentsline{toc}{chapter}{Abbildungsverzeichnis}
+\listoffigures
+
+\addcontentsline{toc}{chapter}{Tabellenverzeichnis}
+\listoftables
+
+\pagestyle{fancy}
+\part{Hauptteil} % Hauptteil
+
+\include{kapitel_1_einleitung} % Kapitel 1
+
+\include{kapitel_2_begriffsklarungen} % Kapitel 2
+
+\include{kapitel_3_hardware} % Kapitel 3
+
+\include{kapitel_4_software} % Kapitel 4
+
+\include{kapitel_5_anwendungsentwicklung} % Kapitel 5
+
+\include{kapitel_6_lizenz} % Kapitel 6
+
+\include{kapitel_7_zusammenfassung}
+
+\part{Anhang} % Anhang
+
+\pagestyle{empty}
+
+\addcontentsline{toc}{chapter}{Grafiken}
+\include{grafiken}
+
+\addcontentsline{toc}{chapter}{Tabellen}
+\include{tabellen}
+
+\addcontentsline{toc}{chapter}{Abkürzungsverzeichnis}
+\include{abkurzungsverzeichnis} % Abkürzungsverzeichnis
+
+\addcontentsline{toc}{chapter}{Literaturverzeichnis}
+\bibliography{literatur} % Literaturverzeichnis
+
+\addcontentsline{toc}{chapter}{Anlagenverzeichnis}
+\include{anlagen}
+
+\end{document}

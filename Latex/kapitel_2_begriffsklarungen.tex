@@ -1,0 +1,26 @@
+\chapter{Begriffsklärungen}
+In diesem Kapitel werden die nötigen Begriffe erläutert, die für das Verständnis der in dieser Arbeit behandelten Thematik notwendig sind.
+
+\section{Nebenläufigkeit}
+Zwei Routinen, welche die Eigenschaft der Nebenläufigkeit besitzen, sind voneinander unabhängig ausführbar und können somit gleichzeitig, zeitlich durchmischt oder nacheinander ausgeführt werden. \cite{Hauck_Technische_Informatik}[S.1] Ein Algorithmus kann somit als nebenläufig bezeichnet werden, wenn sich seine Ausführung in Sub- oder Teilroutinen zerlegen lässt, welche zueinander nebenläufig sind.\\
+Die Nebenläufigkeit ist somit die Voraussetzung für die Parallelität.
+
+\section{Parallelität}
+Werden zwei Routinen tatsächlich gleichzeitig ausgeführt, spricht man von Parallelität. \cite{Hauck_Technische_Informatik}[S.1] Ein Algorithmus wird also dann parallel ausgeführt, wenn er nebenläufig ist und seine Sub- oder Teilprozesse auch praktisch zur gleichen Zeit ablaufen.\\
+Um einen Algorithmus parallel auszuführen, muss dessen Ausführung in Prozesse oder Threads aufgespalten werden.
+
+\section{Prozess}
+\textit{„Ein Prozeß ist die Ausführung eines Programms auf einem Prozessor einschließlich seiner Umgebung.“} \cite{Strey_Konzepte_von_Betriebssystemen}[S.5] Somit umfasst ein Prozess neben dem ausgeführten Algorithmus auch Ressourcen, wie etwa einen zugewiesenen Speicherbereich im \ac{RAM}, zugehörige \ac{I/O} Streams und eine eigene Zuweisung zum Prozessor.\\
+Ein Programm kann aus mehreren Prozessen bestehen, allerdings muss bei jedem Starten eines neuen Prozesses auch ein neuer Ressourcenkontext geschaffen werden, was einen gewissen Rechen- und Zugriffsaufwand hervorruft. Zwar ist die Speicherverwaltung innerhalb eines Prozesses einfacher und weniger konfliktanfällig, doch ist die Kommunikation bzw. der Datenaustausch zwischen mehreren Prozessen (eines Programms) recht aufwendig, da jeder Prozess seinen eigenen abgegrenzten Speicherkontext besitzt.\\
+Die Fähigkeit eines Computersystems mehrere Prozesse auszuführen (dies muss allerdings nicht parallel sondern lediglich nebenläufig erfolgen) wird als Multitasking bezeichnet.\\
+Für die Programmaufteilung in agilere, ressourcenärmere und kommunikativere Einheiten empfiehlt sich daher die Nutzung von Threads.
+
+\section{Thread}
+Ein Prozess kann in mehrere Threads geteilt werden. Als Teil eines Prozesses besitzen alle Threads desselben den gleichen Ressourcenkontext, weshalb sie etwa auf die gleichen Speichereinheiten zugreifen können. Allerdings ist es dennoch möglich die Threads eines Prozesses nebenläufig auszuführen.\\
+Die Erzeugung und Nutzung von Threads ist aufgrund der Verwendung eines einzigen Ressourcenkontextes in der Regel schneller und einfacher.\\
+Durch die Nutzung der gleichen Speicherobjekte durch mehrere Threads besteht allerdings auch die Gefahr von typischen Zugriffsproblemen wie Race Conditions (Aufnahme veralteter, zu neuer oder falscher Daten aus geteilten Speicherobjekten, aufgrund nicht determinierter Zugriffsreihenfolgen der Threads \cite{Rouse_race_condition}) oder Deadlocks (zyklische Sperrung und Anforderung geteilter Ressourcen durch verschiedene Threads,welche zu Wartesituationen führen, die nicht mehr aufgelöst werden können \cite{Szwillus_Deadlocks}[S.1]). Solche Fehlerquellen müssen bereits bei der Planung des Speichermanagements ausgeschlossen oder durch eine geeignete Strategie behandelt werden.\\
+Ist ein Computersystem dazu in der Lage einen Prozess auszuführen, der sich in mehrere Threads teilt, dann spricht man vom Multithreading (auch hier muss die Verarbeitung nicht zwangsläufig parallel erfolgen).\\
+Das Ziel der Aufteilung von Programmen in Prozesse und Threads ist in vielen Fällen die parallele Ausführung.
+
+\section{Multiprocessing}
+Führt ein Computersystem mehrere Prozesse bzw. Threads wirklich parallel aus, so wird dieser Vorgang Multiprocessing genannt. Multitasking bzw. Multithreading sowie eine Hardware mit entsprechender Schnittelle, die die Ausführung mehrerer Prozesse bzw. Threads unterstützt, sind Voraussetzungen für das Multiprocessing.

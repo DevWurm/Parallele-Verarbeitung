@@ -1,0 +1,141 @@
+\chapter{Umsetzung von Parallelität auf Softwareebene}
+Um Software im parallelen Betrieb zu nutzen bestehen einige Voraussetzungen, an das betreffende Programm als auch an die Umgebung.\\
+Ab dieser Stelle wird explizit nur noch auf die Umsetzung von Parallelität mithilfe von Threads eingegangen, da sie für die meisten beschriebenen Anwendungsfälle optimal und weit verbreitet sind. Im Gegensatz zum vorherigen Kapitel ist die Implementation von Threads und Prozessen hier nicht mehr gleichwertig.\\
+Um ein Programm parallel statt sequentiell auszuführen, benötigt es einen gewissen Aufwand, um die benötigten Ressourcen zu verteilen und die parallele Struktur aufzubringen und zu koordinieren. Dazu benötigt es ein Prinzip der Ressourcenverteilung.
+
+\section{Ressourcenverteilung}
+Im Gegensatz zu sequentieller Software kommt es bei paralleler Software häufig zu gleichzeitigen Schreibvorgängen. Besonders wenn die Reihenfolge der Daten relevant ist, ist ein Schreiben auf die gleichen Daten aus mehreren Threads nur durch blockierende Ausschlussverfahren wie Mutexe oder Locks möglich, wodurch es häufig weniger fehleranfällig und effizienter ist die für einen Thread benötigten Arbeitsdaten zu kopieren und an den Thread zu übergeben. Außerdem müssen \ac{I/O} Zugriffe (Dateien lesen/schreiben, Netzwerkkommunikation, Nutzereingaben, etc.) bearbeitet und die benötigten Threads gestartet und wieder beendet werden. Dafür benötigt es ein Prinzip, um mit derartigen Aufgaben umzugehen.
+
+\subsection{Master-Slave-Prinzip}
+Für Ideale parallele Berechnungen, also \textit{\glqq Berechnungen,die einfach in komplett voneinander unabhängige Teile zerlegt werden und auch parallel berechnet werden können (embarrassingly parallel) [...] und Idealerweise [...] keine Komunikation zwischen den parallelen Prozessen nötig [ist] \grqq} \cite{Zeindl_Parallel_Programming}[S.19], wie es viele typische parallelisierte Algorithmen, wie Sortieralgorithmen oder Suchalgorithmen sind, bietet sich das einfache Master-Slave-Prinzip an. \cite{Zeindl_Parallel_Programming}[S.19]\\
+Dabei gibt es einen Hauptthread (Masterthread) und mehrere Arbeitsthreads (Slavethreads). Der Masterthread (in der Regel der erste Thread, der zusammen mit dem Prozess erstellt wird), welcher sich um die Verteilung der bereits genannten Ressourcen, wie etwa die Verteilung der Daten kümmert, um das Auftreten von Race Conditions zu vermeiden, zu denen es leicht kommen könnte, wenn jeder Slavethread selbst Daten aus den globalen Datenstrukturen abruft und modifiziert. Außerdem bearbeitet der Masterthread \ac{I/O} Zugriffe, die zu redundanten Arbeiten führen würden, wenn sie in den Slavethreads durchgeführt werden würden. So würde es etwa wenig Sinn machen, wenn jeder Arbeitsthread erneut Nutzereingaben auswerten würde, darum wird dies im Hauptthread ausgeführt. Außerdem ist der Masterthread für die korrekte Erzeugung und Beendigung der Slavethreads zuständig. Dieser Sachverhalt ist am Beispiel des Sequenzdiagrammes einer einfachen Beispielanwendung in \textit{Abbildung  \ref{sequence_master_slave}} dargestellt.\\
+Slavethreads haben ausschließlich Zugriff auf ihr eigenes Datensegment, nicht aber auf die globalen Daten. Eine Kommunikation zwischen den Slavethreads ist nicht vorgesehen. \cite{Bugner_Parallele_Programmierung}[S.2]\\[0.25 cm]
+Bei komplexeren Anwendungen ist es oft notwendig von dem strikten Master-Slave-Prinzip abzuweichen, da die Arbeitsthreads je nach Situation zum Beispiel auf verschiedene Daten zugreifen müssen oder mit den Ergebnissen eines anderen Threads arbeiten müssen. Auch der Zugriff auf \ac{I/O} Elemente kann von Arbeitsthreads benötigt werden, wie es häufig bei Serversoftware der Fall ist. Auf alternative Ressourcenverteilungskonzepte wird hier aber nicht weiter eingegangen.\\
+Neben einer Verwaltungsstruktur müssen auch die Algorithmen einer Software an die Parallelisierung angepasst werden. Dies stellt ebenfalls bestimmte Anforderungen an die bearbeiteten Probleme.
+
+\section{Parallelisierbare Probleme}
+Neben der Anwendung der Parallelität zur Effektivitätssteigerung, durch die Parallelisierung der Algorithmen selbst, gibt es Fälle, in denen die gleichzeitige Verarbeitung von mehreren verschiedenen Algorithmen sinnvoll genutzt werden kann (z.B. Aktualisierung grafischer Oberflächen bei gleichzeitigen Rechenprozessen, Direktvergleich mehrerer Algorithmen). Auf diese Fälle wird in diesem Abschnitt allerdings nicht eingegangen, da sie immer sinnvoll parallelisierbar sind, solange nicht einer der Algorithmen von Daten abhängig ist, welche erst nach der Abarbeitung eines anderen zur Verfügung stehen und die Parallelisierung zum richtigen Funktionieren der Software zwingend ist, weshalb die Frage nach der Effektivität entfällt.\\
+Um eine Software zum Zwecke der Effektivitätssteigerung sinnvoll zu parallelisieren, müssen ihre aufwendigsten Probleme, also solche, die einen hohen Zeitverbrauch haben, einen effektiven parallelisierbaren Lösungsalgorithmus besitzen.
+
+\subsection{Kriterien paralleler Algorithmen}
+Die Algorithmen eines effektiv zu parallelisierenden Problems müssen also zwei Kriterien erfüllen. Sie müssen zum einem parallelisierbar sein und zum anderen muss diese Parallelisierung effektiv ein.
+
+\subsubsection{Parallelisierung von Algorithmen}
+Zum parallelisieren eines Problems benötigt man einen parallelisierbaren Lösungsalgorithmus. Entwerder der bereits bekannte (sequentielle) Algorithmus lässt sich einfach und effizient parallelisieren oder es muss nach einem alternativen Lösungsalgorithmus gesucht werden, für den das zutrifft. Für viele Probleme sind solche Alternativalgorithmen bekannt, andernfalls existieren Strategien, mit denen es häufig gelingt, einen solchen aufzustellen (z.B. Divide and Conquer [Teile und Herrsche]). \cite{Schmidt_Schauss_Parallele_Verarbeitung}[S.2]\\
+Ein Algorithmus ist dann parallelisierbar, wenn er nebenläufig ist. Dazu muss er sich in Sub- oder Teilroutinen aufspalten lassen, welche unabhängig voneinander ablaufen können. Bei vielen Anwendungen, wenn die Sub-/Teilroutinen Daten untereinander austauschen müssen, ist die völlige Unabhängigkeit nicht gegeben, in diesem Fall handelt es sich nicht mehr um eine ideale/triviale Parallelität. In solchen Fällen müssen neben der Aufspaltung des Algorithmus auch Kommunikations- und Synchronisationsmöglichkeiten implementiert werden. In solchen Situationen muss besonders überprüft werden, ob die Effektivität der parallelen Lösung gewahrt bleibt, da es durch häufig blockierende Synchronisationsmethoden zu langen Wartezeiten der Threads kommen kann, was die Effizienz der Lösung beeinträchtigen kann.\\
+Für viele Probleme gibt es bereits parallelisierbare Lösungsalgorithmen, für einige wurden allerdings noch keine gefunden, weshalb angenommen wird, dass keine existieren, auch wenn es dafür noch keinen Beweis gibt.\\
+Die Möglichkeit bzw. \glqq Unmöglichkeit\grqq  der Parallelisierung von Problemen lässt sich  gut an einem Alltagsbeispiel darstellen:\\
+Will man ein Haus einrichten, so ist das ein parallelisierbares Problem, da der Hauptalgorithmus (das Aussuchen der Einrichtungsgegenstände) für jeden Raum separat durchgeführt werden kann, womit man den Algorithmus in Teilroutinen zerlegt hat, die in der Regel unabhängig voneinander (oder mit einem geringen Kommunikationsaufwand, um die Einrichtung harmonisch wirken zu lassen) ausgeführt werden können. Weist man nun jedem Raum einen Innenarchitekten zu, dann wird das Problem \glqq Haus einrichten\grqq  parallel gelöst. Diese Lösung ist im Normalfall sogar effektiv, da in der Regel der Verwaltungsmehraufwand im Vergleich zur Zeitersparnis gering ist.\\
+Will man hingegen ein Haus aus mehreren Etagen bauen, so ist dieses Problem nicht parallelisierbar (wenn man eine Etage als kleinste betrachtbare Einheit betrachtet), da es nicht (sinnvoll/effektiv) möglich ist, die nächste Etage zu bauen, wenn die darunter liegende noch nicht fertig ist bzw. noch nicht existiert.\\
+Ein Algorithmus aus der Informatik bzw. Mathematik wäre z.B. das parallele Summieren vieler Zahlen. Die Liste der Werte kann in mehrere Teillisten zerlegt werden, welche unabhängig voneinander summiert werden können (unabhängige Teilprozesse). Die daraus resultierenden Listen können dann miteinander summiert werden, um das Endergebnis zu erhalten. Ist die Liste von Summanden groß genug, ist dieser Lösungsalgorithmus mit hoher Wahrscheinlichkeit auch effektiv.\\
+Nicht zu parallelisieren ist hingegen die Bildung einer Folge mit rekursiver Bildungsvorschrift (wenn man ein Folgeglied als kleinste betrachtbare Einheit betrachtet), insofern sich ihre Bildungsvorschrift nicht ohne weiteres in eine explizite Bildungsanweisung umwandeln lässt. Um das nächste Folgeglied zu berechnen, muss zwangsläufig das vorherige bekannt sein. Somit gibt es keine Möglichkeit, das Berechnen vieler Folgenglieder in Teilprozesse zu zerlegen. Es ist somit nicht parallelisierbar.
+
+\subsubsection{Effektivität und Effizienz der Parallelisierung}
+Ein Problem ist dann effektiv parallelisierbar, wenn ein paralleler Lösungsalgorithmus existiert, dessen Nutzung zu einem Speedup des Problems größer als 1 führt \mbox{($S(n,p)>1$)}.\\
+Der Speedup $S$ (also die Verhältnismäßige Laufzeitverbesserung) eines Problems mit der Problemgröße $n$ auf einem System mit einer Anzahl an Recheneinheiten (z.B. Prozessorkernen) $p$ berechnet sich aus dem Verhältnis aus der Laufzeit $T$ des effizientesten seriellen Lösungsalgorithmus \mbox{($T(n,1)$)} zur Laufzeit des parallelen Algorithmus \mbox{($T(n,p)$)}:
+\begin{align}
+S(n,p)=\frac{T(n,1)}{T(n,p)}
+\label{speedup_formel}
+\end{align}
+Die Effizienz der parallelen Lösung $E$ berechnet sich aus dem Verhältnis aus Speedup $S$ zur Anzahl der Recheneinheiten $p$ :
+\begin{align}
+E(n,p)=\frac{S(n,p)}{p}
+\label{effizienz_formel}
+\end{align}
+Durch das Einsetzen der Speedup Gleichung \ref{speedup_formel} in die Effizienz Gleichung \ref{effizienz_formel}, ergibt sich folgende Gleichung:
+\begin{align}
+E(n,p)=\frac{T(n,1)}{p*T(n,p)}
+\label{effizienz_formel_2}
+\end{align}\\
+\cite{Tichy_Parallele_Algorithmen}[S.7]\\[0.25 cm]
+Anhand von Formel \ref{effizienz_formel_2} lässt sich erkennen, dass gilt:
+\begin{align}
+E(n,p)=1;\text{ für }T(n,p)=\frac{T(n,1)}{p}
+\end{align}
+Die Effizienz erreicht also genau dann 1, wenn jede Recheneinheit die gleiche nutzbare Leistung erbringt (Verwaltungsaufwand fällt dabei nicht unter die nutzbare Leistung und ist von der erbrachten Gesamtleistung abzuziehen, um die nutzbare Leistung zu erhalten), wie es bei dem sequentiellen Algorithmus der Fall ist. Damit ergibt sich auch die Obergrenze der Effizienz mit $E(n,p)=1$, da die Leistung der einzelnen Recheneinheiten, bei einer Effizienz größer als 1, vom parallelen Algorithmus besser ausgenutzt werden würde, als vom sequentiellen Algorithmus. Damit wäre aber der Bedingung des Speedups widersprochen, dass es sich bei dem sequentiellen Algorithmus um den effizientesten sequentiellen Algorithmus handeln muss, da der parallelisierbare Algorithmus dann aber effizienter wäre und damit auch ein effizienterer serieller Algorithmus existent wäre (jeder parallele Algorithmus ist nebenläufig und jeder nebenläufige Algorithmus lässt sich auch seriell ausführen). Ist die Effizient gleich 1, so ist der Speedup direkt proportional zur Anzahl der verwendeten Recheneinheiten \mbox{($S(n,p)\sim p$)}. Man spricht dann von einem optimalen oder perfekten Speedup. \cite{Rogina_Parallele_Algorithmen}[S.2]\\
+In der Praxis ist die Effizienz einer parallelen Lösung aber  kleiner als 1, da prinzipbedingt Verwaltungsaufwendungen, wie Erzeugen von Threads oder Aufspalten und Zusammenfügen der Daten, anfallen, welche die nutzbare Leistung reduzieren.\\
+Die Effizienz darf allerdings nicht fälschlicherweise dazu genutzt werden, um Rückschlüsse auf die Effektivität von sequentiellem und parallelem Lösungsalgorithmus zu ziehen, da die Effektivität nur dann direkt von der Effizienz abhängt, wenn die Prozessparameter gleich sind. Die Effizienz sagt ausschließlich aus, wie optimal die Ressourcen (Rechenleistung der Recheneinheit) ausgenutzt werden. Dies ist beim parallelem Verfahren schwächer, da aber im Gegensatz zum parallelen eine größere Anzahl an Recheneinheiten verwendet werden kann, verbessern sich wichtige Prozesseigenschaften wie die Laufzeit dennoch lohnenswert. Die Effektivität bleibt gewahrt, solange der Speedup mehr als 1 beträgt.\\
+Der Wert der Effizienz lässt sich allerdings dazu verwenden, um mehrere Implementierungen paralleler Lösungsalgorithmen des gleichen Problems zu vergleichen, da unter gleichen Voraussetzungen, also gleiche Anzahl der genutzten Recheneinheiten und gleiche Problemgröße, der Algorithmus mit der höheren Effizienz auch die höhere Effektivität (in diesem Fall die kürzere Laufzeit) hat. Außerdem kann durch den Vergleich von (meist schlechterer) Effizienz und (meist höherer) Effektivität, die Wirtschaftlichkeit eines parallelen Algorithmus ermittelt werden.\\
+In dieser Arbeit soll u.A. die Effizienz und Effektivität paralleler Algorithmus durch die Implementierung von Beispielalgorithmen untersucht werden, welche im folgenden Abschnitt vorgestellt werden.
+
+\subsection{Beispielalgorithmen dieser Arbeit}
+Da die Beispielanwendungen dieser Arbeit das Sortieren im Kontext der parallelen Verarbeitung untersuchen, werden hier zwei Sortieralgorithmen vorgestellt, welche entweder in sequentieller, aber auch in paralleler Implementation in den Anwendungen genutzt werden.\\
+Um die Beschreibung der Algorithmen direkter formulieren zu können, wird hier das gleiche Sortierkriterium angenommen, wie es auch bei den Beispielanwendungen der Fall ist, also ein aufsteigendes Sortieren nach nummerischem Wert.
+\subsubsection{Bottom-Up Mergesort}\label{mergesort}
+Die Bottom-Up Variation des Mergesortalgorithmus wird hier sowohl in sequentieller als auch in paralleler Implementation verwendet.\\
+Der Bottom-Up Mergesortalgortihmus ist eine nicht-rekursive Variante des rekursiven Mergesortalgorithmus. Die nicht-rekursive Implementation ist für die Parallelisierung besser geeignet, da hier die Anzahl der genutzten Threads beschränkt werden kann und somit der Verwaltungsaufwand minimiert wird.\\
+Beim Mergesortalgorithmus wird die Tatsache ausgenutzt, dass eine Liste mit der Länge 1 immer als sortiert gilt.\\
+Zwei sortierte Listen können einfach zu einer sortierten Liste zusammengefügt werden, indem man die jeweils ersten Elemente der Quelllisten vergleicht und das Element, das dem Sortierkriterium entspricht (in diesem Fall das kleinere), in die Zielliste verschiebt. Dies wird solange wiederholt, bis beide Listen leer sind (ist eine Liste leer, kann die andere einfach an das Ende der Zielliste verschoben werden). Da beide Quelllisten sortiert sind, kann ein späteres Element einer Quellliste nicht kleiner sein, als eines das sich bereits in der Zielliste befindet, denn dann müssen alle vorherigen Elemente dieser Quellliste ebenfalls kleiner sein, als das Element in der Zielliste, welches dadurch nicht hätte in die Zielliste gelangen können. Deshalb kann das Zusammenfügen von zwei sortierten Listen mithilfe eines Durchlaufes geschehen. Dieser Schritt wird als \textit{\glqq Merge\grqq} bezeichnet.\\
+Beim Bottom-Up Mergesort wird die zu sortierende Liste in Teillisten zerlegt, welche zu Beginn die Länge 1 haben. Die zu sortierende Liste wird nun durchlaufen und immer zwei dieser sortierten Teillisten werden mithilfe eines Merge Schrittes zu einer sortierte Liste zusammengefügt, welche in die Ergebnisliste geschrieben wird. Wurde die gesamte Liste so durchlaufen, wird die Ergebnisliste als neue zu sortierende Liste genutzt und in (nun bereits sortierte) Teillisten mit der doppelten Länge des vorherigen Durchlaufs zerlegt und der Algorithmus beginnt von vorn. Ist die Anzahl der Teillisten ungerade, wird die letzte Teilliste mit einer leeren Liste zusammengeführt und wird daher unverändert an die Ergebnisliste angehängt. Der Algorithmus wird dann beendet, wenn die Länge der Teillisten gleich der Länge der zu sortierenden Liste ist. \cite{Wayne_Merge_Sort}\\
+Bei der parallelen Implementation wird die zu sortierende Liste in so viele Teillisten zerlegt, wie Recheneinheiten zur Verfügung stehen und jede davon wird von einem Thread mithilfe des sequentiellen Mergesortalgorithmus sortiert. Die sortierten Teillisten werden nacheinander in eine Ergebnisliste geschrieben. Diese wird danach als neue Ausgangsliste betrachtet und die Anzahl der genutzten Threads wird halbiert. Der Algorithmus wird nun erneut durchgeführt, mit dem Unterschied, dass die Datenmenge jedes laufenden Threads doppelt so groß ist und den Threads die Information mitgegeben wird, wie groß der bereits sortierte Teil ihrer Teillisten ist (da genau die Hälfte der zu sortierenden Daten bereits sortiert ist, wird in jedem Thread genau ein Merge Schritt durchgeführt). Dies wird wiederholt, bis die gesamte Ausgangsliste von einem einzelnen Thread behandelt wurde, danach ist sie vollständig sortiert.\\
+Die Zeitkomplexität des Mergesortalgorithmus mit einer Listenlänge von $n$, lässt sich mit \mbox{$O(n*log(n))$} beschreiben. Die theoretische Laufzeit nimmt also bei steigender Listenlänge $n$ nicht schneller zu als die Funktion \mbox{$f(n)=n*log(n)$} oder \mbox{$f(n)=c*n*log(n)$}, wobei $c$ eine Konstante ist.\\
+Bei der parallelen Implementation mit einer Listenlänge $n$ auf einem System mit $p$ Recheneinheiten lässt sich die Zeitkomplexität mit \mbox{$O(\frac{n*log(n)}{p})$} beschreiben . Die theoretische Laufzeit nimmt somit bei steigender Listenlänge $n$ und konstanter Anzahl an Recheneinheit $p$ nicht schneller zu als die Funktion \mbox{$f(n)=\frac{n*log(n)}{p}$} bzw. \mbox{$f(n)=c*\frac{n*log(n)}{p}$}, wobei $c$ eine Konstante ist. In der Praxis lässt sich aber erkennen, dass die Laufzeit, entgegen der theoretischen Zeitkomplexität, ab einem bestimmten Wert von $p$ wieder ansteigt, da von dort an der Speedup kleiner als 1 wird, weil der Verwaltungsaufwand durch das Parallelisieren von dort an größer ist als der Geschwindigkeitsvorteil. Dieser kritische Wert von $p$ hängt aber von der Implementierung, der Listenlänge und der Hardware des Systems ab. \cite{Qureshi_Performance_Comparison}[S.2]\\
+Die Konstante $c$, auch als \textit{\glqq hidden constant\grqq} bezeichnet, ist ein Wert, der sich aus praktischen Bezügen ergibt, wie etwa die vorliegende Prozessorarchitektur, die Implementation von Standardbibliotheken oder die Art der durchgeführten Operationen. Da $c$ nicht durch die rein theoretische Vorbetrachtung bestimmt werden kann, wird es bei theoretischen Komplexitätsvergleichen vernachlässigt. \cite{Voroshilin_Hidden_Constants}
+
+\subsubsection{Bubblesort}\label{bubblesort}
+Der Bubblesortalgorithmus wird hier in sequentieller Form zum Vergleich mit dem sequentiellen Mergesortalgorithmus genutzt.\\
+Bubblesort ist ein sehr einfacher, aber auch sehr langsamer bzw. ineffizienter Algorithmus.
+Der Algorithmus durchläuft die Ausgangsliste und vergleicht dabei immer zwei Elemente. Entspricht die Reihenfolge der beiden Werte nicht dem Sortierkriterium (ist also der zweite Wert kleiner als der erste), werden sie vertauscht. In der nächsten Iteration rückt der Vergleich um ein Element weiter. Der zweite Vergleichspartner (wenn die Werte getauscht wurden, ist es der ursprünglich erste Vergleichspartner) des letzten Vergleichs wird damit der erste Vergleichspartner des neuen Vergleichs. Dies wird solange durchgeführt, bis die gesamte Liste durchlaufen ist. Danach wird die Liste erneut durchlaufen, da das größte Element der bestehenden Liste bei einem Durchlauf allerdings immer bis zum Schluss \glqq durchwandert\grqq{} muss bei diesem Durchlauf der letzte Vergleich nicht mehr durchgeführt werden, da das letzte Element mit Sicherheit das größte ist. Die durch diese Reduzierung der Vergleiche entstehenden \glqq Restlisten\grqq{} (nicht sortierter Listenteil) werden somit bei jedem Durchlauf um ein Element kürzer. Der Algorithmus ist dann beendet wenn die \glqq Restliste\grqq{} die Länge 0 hat und damit alle Werte im sortierten Teil der Liste liegen.\\
+Die Zeitkomplexität des Mergesort Algorithmus bei steigender Listenlänge $n$ lässt sich mit \mbox{$O(n^2)$} beschreiben. Somit nimmt die theoretische Laufzeit des Algorithmus bei steigender Listenlänge nicht schneller zu als die Funktion \mbox{$f(n)=n^2$} bzw. \mbox{$f(n)=c*n^2$}, wobei für die Konstante $c$ gleiches wie im vorherigen Abschnitt gilt. \cite{Schallehn_Grundlagen_der_Informatik}[S.8]\\[0.25 cm]
+In Abbildung \ref{komplexitat} ist die durch die Zeitkomplexität zu erwartende Laufzeit bei steigender Listenlänge $n$ qualitativ dargestellt.\\[0.5 cm]
+Um parallelen Algorithmen der eigenen Programme auch auf dem richtigen Weg an die dementsprechende Hardware zu übermitteln, benötigt es Schnittstellen, die einen Zugriff auf diese Ressourcen ermöglichen.
+
+\section{Software-Hardware Schnittstelle}
+Die Schnittstelle zwischen eigener Software und Hardware wird in der Regel von zwei Komponenten gebildet. Zum einen die von der Sprache und dem Betriebssystem (oder in einigen Fällen von anderen Entwicklern) gegebenen Bibliotheken, die während des Kompilierungsprozesses die allgemeinen und hochsprachlichen Anweisungen auf die, für das jeweilige Betriebssystem passenden Anweisungen, welche sich meist auf einem deutlich hardwarenäherem Niveau bewegen, umwandeln und zum anderen das Betriebssystem selbst, dass diese speziellen Anweisungen an die Hardware übergibt und dabei die Ausführung durch Ressource Management Prozesse wie Scheduling und Speicherverwaltung koordiniert.
+
+\subsection{Thread-Bibliothek in C++11}
+Mit der \texttt{thread} Bibliothek von C++ in Version 11 wird erstmals eine im Standard festgelegte Möglichkeit für die Nutzung von Threads geschaffen.\cite{Mutz_C++11}[S.3]\\
+Mithilfe von
+\begin{lstlisting}
+#include <thread>
+using std::thread;
+\end{lstlisting}
+wird die Thread Bibliothek eingebunden und die Klasse Thread zur Verfügung gestellt.\\
+An den Konstruktor eines Thread Objektes muss zur Erzeugung eines neuen Threads eine Funktion oder ein Funktor (Funktionsobjekt) mit dem Rückgabetyp \texttt{void} (andernfalls wird der Rückgabetyp ignoriert), zusammen mit einer Liste der für diese Funktion/Funktor benötigten Argumente übergeben werden. Es existiert ebenfalls ein Standardkonstruktor (leerer Konstruktor), wird dieser verwendet, wird kein Thread erzeugt. Es existiert keine Methode einen Thread nach dem Konstruieren zu starten, das Objekt muss dazu neu konstruiert werden. \cite{c++_thread}\\
+Ein Thread wird durch den Aufruf der Methode \texttt{thread::join()} zerstört. Der Aufruf dieser Methode veranlasst den aufrufenden Thread zum Warten, bis der zu beendende Thread seine Arbeit beendet hat und zerstört ihn danach. Zwischen Erzeugen und Beenden eines Threads können im Aufruferthread weitere Anweisungen abgearbeitet werden.\\
+Eine weitere Möglichkeit, mit dem Ende eines Threads umzugehen, ist die Methode \texttt{thread::detach()}. Dabei wird der Thread von seinem Aufruferthread losgelöst und ist von dorthin unabhängig. Das \texttt{thread} Objekt weist nun keine Referenz mehr zu dem Thread auf und kann zerstört werden. Nach dem Beenden seiner Funktion zerstört der losgelöste Thread seine Ressourcen und sich selbst. Er kann somit auch die Lebenszeit der aufrufenden Funktion überleben. \texttt{detach} ist dann sinnvoll, wenn die Ergebnisse des erzeugten Threads für den Aufrufer nicht von Bedeutung sind und die Blockierung des aufrufenden Threads durch \texttt{join} vermieden werden soll.\\
+Ist ein Thread erzeugt worden (das \texttt{thread} Objekt also mit dem Initialisierungskonstruktor initialisiert worden) und nicht mit \texttt{detach} gelöst worden, dann liefert die Methode \texttt{thread::joinable()} den Boolean Wert \texttt{true} zurück. \cite{Bar_Schodinger}[S.654-S.657]\\
+Mithilfe der \texttt{static} Methode \texttt{thread::hardware\_concurrency()} kann man die Anzahl der verfügbaren Recheneinheiten abrufen (da es sich um eine \texttt{static} Methode handelt, muss dazu keine Instanz der Klasse angelegt werden).\\
+Die Erzeugung eines Threads aus einer Funktion und das Beenden des Threads wird wie folgt durchgeführt:
+\begin{lstlisting}
+#include <iostream>
+#include <thread>
+
+using std::cout;
+using std::thread;
+
+void example_function(int data) { //Beispielfunktion
+	cout << data;
+}
+
+int main() {
+	int example_data = 5;
+	
+	// Ausgabe der Anzahl an Prozessoren
+	cout << "Anzahl der Prozessoren: " << thread::hardware_concurrency();	
+	
+	//Erzeugung des Threads
+	thread example_thread(example_function, example_data); 
+
+	//Weitere Operationen (z.B. weitere Threads erzeugen)
+
+	if (thread.joinable()) {
+		//Warten auf das Ende des Threads und Beenden des Threads
+		example_thread.join(); 
+	}
+	else {
+		cout << Fehler bei der Beendung des Threads;
+	}
+
+	return 0;
+}
+\end{lstlisting}
+In diesem Beispiel wird der Wert 5 aus einem zweiten Thread ausgegeben. Die Fehlermeldung tritt auf, wenn der Thread nicht erzeugt wurde oder er zwischen Erzeugung und Beendigung mit \texttt{detach} gelöst wurde.\\[0.25cm]
+Die Thread Bibliothek bietet eine standardisierte Möglichkeit, Multithreading auf Programmebene umzusetzen. Die erzeugten Threads werden von den Funktionen der Bibliothek mithilfe der passenden Schnittstelle an das jeweilige Betriebssystem übergeben. Dieses muss diese behandeln und zur korrekten Ausführung auf dem Prozessor bringen.
+
+\subsection{Betriebssystem als Hardwareschnittstelle}
+Wurden die Threads softwareseitig, übernimmt das Betriebssystem die Übertragung der Anweisungen an die Hardware. Dabei nutzt das Betriebssystem seine Stelle als zentrale Hardwareschnittstelle, um die Ressourcenverwaltung durchzuführen. Darunter fällt unter anderem die Zuteilung und Verwaltung von Speicher und die Verteilung von Rechenzeit an die verschiedenen Threads (siehe dazu \textit{Abschnitt \ref{multiplexing}}). \cite{Strey_Konzepte_von_Betriebssystemen}[S.1]\\
+Da im Normalfall das Betriebssystem die ausschließliche Hardwareschnittstelle ist, hat man keinen direkten Einfluss darauf, wie die Rechenzeit auf das eigene Programm verteilt wird, allerdings kann davon ausgegangen werden, dass der Optimierungsgrad der Ressource Sharing Prozesse bei gebräuchlichen Betriebssystem sehr hoch ist und etwaige Einbußen durch ein fehlerhaftes/suboptimales Scheduling vernachlässigbar sind.\\
+Wie die Leistung verteilt wird, lässt sich durch einen umfangreichen Prozessmonitor, der die Threads eines Prozesses mit der zugehörigen Prozessornutzung anzeigt, recht gut erkennen.\\
+In \textit{Abbildung \ref{top_h}} ist dies dargestellt. Die Threads des Prozesses \texttt{sort} (roter Rahmen) führen durchschnittlich zu einer sehr hohen Prozessorauslastung von nahezu 100 Prozent (der Monitor \texttt{top} betrachtet die Leistung jedes (virtuellen) Prozessors mit 100 Prozent, eine Vollauslastung des Prozessors würde hier zu einer summierten Auslastung von 800 Prozent führen), woraus man schlussfolgern kann, das die Threads viel Rechenzeit zur Verfügung gestellt bekommen und die Ausführung des Programms dadurch sehr effektiv ist (insofern die verwendete Implementierung an sich effizient ist).\\[0.5 cm]
+Im nächsten Kapitel soll nun dargestellt werden, wie die bisher erarbeiteten Grundlagen genutzt werden können, um parallele Anwendungen für verschiedene Anwendungsfälle zu entwickeln.

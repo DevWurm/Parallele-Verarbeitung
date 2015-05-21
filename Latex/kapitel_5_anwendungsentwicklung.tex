@@ -1,0 +1,354 @@
+\chapter{Entwicklung von Multithreading Anwendungen}
+Die bisher erläuterten Konzepte bieten nun die Grundlage für die Entwicklung multithreadingfähiger Software. Um dies darzustellen wurden in dieser Arbeit zwei Beispielanwendungen entwickelt, welche in diesem Kapitel vorgestellt werden. Bei der dafür verwendeten Sprache handelt es sich um C++11. Die Programme werden unter Verwendung mehrerer Bibliotheken erstellt, welche im Abschnitt der jeweiligen Anwendung kurz erwähnt werden. Die genutzten Datenstrukturen und Funktionen basieren zum größten Teil auf Templates, um sie einfach für verschiedene Datentypen zu nutzen und zu erweitern. Bei Templates werden typabhänige Definitionen auf Basis einer Typvariablen getätigt. Die eigentlichen typisierten Ausprägungen des Templates werden erst beim kompilieren, auf Basis der im restlichen Quellcode angeforderten Ausprägungen erstellt.
+
+\section{Sortieren mit Mergesort}
+In der ersten Beispielanwendung \textit{merge\_sort\_list} wird das Anwendungsgebiet der Effektivitättssteigerung behandelt. Mithilfe der Software ist es möglich (numerische) Datenreihen aus \ac{CSV} Dateien einzulesen oder zufällig erzeugen zu lassen. Diese Datenreihen werden dann entweder mithilfe einer sequentiellen oder einer parallelen Implementation des Mergesortalgorithmus sortiert. Sowohl die Ergebniswerte als auch die Prozessergebnisse (also Länge der Liste und Rechenzeit) können wieder in \ac{CSV} Dateien ausgegeben werden. Die Prozessergebnisse können außerdem auch formatiert in der Konsole ausgegeben werden. Ziel der Anwendung ist in erster Linie darzustellen, dass das Sortieren mithilfe des parallelen Algorithmus deutlich effektiver ist als die serielle Verarbeitung. Allerdings kann die Software auch in der realen Anwendung zum Sortieren großer Datenmengen verwendet werden.
+
+\subsection{Aufbau und Wirkungsweise}
+Das Programm selbst behandelt die Nutzereingabe über die Kommandozeilenargumente und führt die \ac{I/O} Operation, also das Einlesen und Schreiben von Dateien und die Ausgaben in der Kommandozeile, durch.\\
+Zum sortieren wird die Templateklasse \texttt{data\_row<T>} aus der Bibliothek\\ \texttt{libmergesort} verwendet. Diese bietet eine Datenstruktur für die Werte der Liste (\texttt{data\_row<T>::data}), in Form einer \texttt{deque<T>} Klasse (bei \texttt{deque<T>} handelt es sich um eine objektorientierte, dynamische Implementation eines Arrays aus der \ac{STL}), eine Datenstruktur für die gemessene Zeit (\texttt{data\_row<T>::operation\_time}), auf Basis der C++ \texttt{chrono} Bibliothek, Konstruktoren und einigen Operatoren (mit denen u.A. auch das Lesen und Schreiben in \ac{CSV} Dateien möglich ist) sowie set- bzw. get-Funktionen. Außerdem enthält \texttt{data\_row<T>} zwei Methoden, die das sortieren der Liste erlauben.\\
+Die erste ist die Methode \texttt{void data\_row<T>::merge\_sort\_data()}, die die Daten in \texttt{data} mithilfe der sequentiellen Implementation des Mergesortalgorithmus sortiert. Dazu ruft sie die nach dem Starten der Zeitmessung die Funktion \texttt{merge\_sort} auf.
+\begin{lstlisting}
+template<typename T>
+void data_row<T>::merge_sort_data() {
+	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+	merge_sort(data);
+	std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+	operation_time = stop - start;
+}
+\end{lstlisting}
+In der Template Funktion \texttt{void merge\_sort(deque<T>\& daten, int listenbreite = 1)}, ist ein Mergesortalgorithmus, wie in \textit{Abschnitt \ref{mergesort}} beschrieben implementiert, welcher die Daten des Argumentes \texttt{daten} sortiert und in dieses zurückschreibt. Mithilfe von \texttt{listenbreite}, kann an die Funktion übergeben werden, wie lang die bereits sortierten Teile der Liste \texttt{daten} sind. Dies ist für die Nutzung der Funktion bei der parallelen Implementierung wichtig. Hier wird der Standardwert 1 verwendet, da die Liste noch keine sortierten Abschnitte aufweist. Der Merge Algorithmus wurde in die Template Funktion\\ \texttt{deque<T> merge\_sort\_merge(deque<T>\& liste1, deque<T>\& liste2)} ausgelagert. Beide Funktionen verwenden die Template Funktion\\ \texttt{void restack(deque<T>\& quelle, deque<T>\& Ziel, int n)}. Diese verschiebt \texttt{n} Elemente vom Beginn der Liste \texttt{quelle} an das Ende der Liste \texttt{ziel}.
+\begin{lstlisting}
+template<typename T>
+void merge_sort(deque<T>& input, int basic_width = 1) {
+	int input_size = input.size();
+	
+	//repeat the merging algorithm until input is sorted completely
+	for (int list_width = basic_width; list_width < input_size; list_width *= 2) {
+		deque<T> buffer;
+		restack(input, buffer, input.size());
+		
+		//cycle through  the list and take list pairs with the size list_width
+		while (buffer.size() > 0) {
+			deque<T> list1;
+			deque<T> list2;
+			
+			if (buffer.size() >= list_width) {
+				restack(buffer, list1, list_width); //move list_width elements into list1
+			}
+			else {
+				//if less then list_width elements are remaining, 
+				//move all remaining elements into list1
+				restack(buffer, list1, buffer.size());
+			}
+			if (buffer.size() >= list_width) {
+				restack(buffer, list2, list_width); //move list_width elements into list1
+			}
+			else {
+				//if less then list_width elements are remaining, 
+				//move all remaining elements into list2
+				restack(buffer, list2, buffer.size());
+			}
+			deque<T> return_buffer = merge_sort_merge(list1, list2); //merge the lists (list2 will always be the smaller list)
+			restack(return_buffer, input, return_buffer.size()); //move the result into result list
+		}
+
+	}
+}
+
+
+
+template<typename T>
+deque<T> merge_sort_merge(deque<T>& list1, deque<T>& list2) { //list2 will always be the smaller list
+	//if list2 is empty use list1 as return list
+	if (list1.size() > 0 && list2.size()==0) {
+		return list1;
+	}
+	else {
+		deque<T> listret;
+
+		//cycle trough lists and compare the first elements, move the smaller element into result list
+		while (list1.size() > 0 && list2.size() >0) {
+			if (list1.at(0)<list2.at(0)) {
+				restack(list1, listret, 1);
+			}
+			else {
+				restack(list2, listret, 1);
+			}
+		}
+		// if on list is empty, move all remaining elements into result list
+		if (list1.size()>0) {
+			restack(list1, listret, list1.size());
+		}
+		else if (list2.size()>0) {
+			restack(list2, listret, list2.size());
+		}
+		return listret;
+	}
+
+}
+\end{lstlisting}
+
+Anfangs wird die Quellliste in eine Arbeitsliste verschoben. Diese wird in Teillisten zerlegt, welche durch den Merge Schritt sortiert werden. Die daraus entstehenden sortierten Listen werden in die leere Quellliste geschrieben. Dies wird solange durchgeführt, bis die gesamte Quellliste sortiert ist. Die Quellliste ist ebenfalls die Ergebnisliste.\\[0.25 cm]
+Die zweite Methode \texttt{void data\_row<T>::parallel\_merge\_sort\_data()}, nutzt eine parellele Implementation von Mergesort. Auch bei dieser wird nach dem Beginn der Zeitmessung die zugehörige Funktion gestartet, allerdings nur, wenn die Länge der Liste mindestens der Anzahl der Verfügbaren Recheneinheiten entspricht, andernfalls wird ebenfalls der sequentielle Algorithmus verwendet.
+\begin{lstlisting}
+template<typename T>
+void data_row<T>::parallel_merge_sort_data() {
+	if (data.size() < thread::hardware_concurrency()) { //use sequential version if list is too short for useful parallel
+		std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+		merge_sort(data);
+		std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+		operation_time = stop - start;
+	}
+	else {
+		std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+		parallel_merge_sort(data);
+		std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+		operation_time = stop - start;
+	}
+}
+\end{lstlisting}
+Bei der parallelen Implementierung in der Templatefunktion\\ \texttt{void parallel\_merge\_sort(deque<T>\& daten)} wird die Quellliste zusätzlich, wie in \textit{Abschnitt \ref{mergesort}} beschrieben, in Teillisten aufgespalten, welche von je einem Thread mit einem sequentiellen Mergesortalgorithmus bearbeitet werden. Danach wird die Anzahl der genutzten Threads halbiert und somit die Länge der Teillisten verdoppelt. Die Länge der bereits sortierten Listenteile wird ebenfalls an den Thread übergeben. Dies wird solange durchgeführt, bis die gesamte Liste von einem Thread bearbeitet wurde und somit die gesamte Liste sortiert ist. Die Templatestruktur \texttt{thread\_block} enthält jeweils einen Thread und seine zugehörigen Daten, um beide Teile immer im Zusammenhang zu speichern und zu verwalten.
+\begin{lstlisting}
+template<typename T>
+struct thread_block {
+	thread t;
+	deque<T> data;
+};
+
+
+
+template<typename T>
+void parallel_merge_sort(deque<T>& input) {
+	int num_of_threads = thread::hardware_concurrency();
+	deque<thread_block<T>> thread_list;
+	int input_size = input.size();
+	int basic_width = 1;
+
+	//reduce the number of threads with every iteration to handle the double length of data
+	while (num_of_threads > 0) {
+
+		//create number_of_threads threads which handle input_size/number_of size elements
+		//of the source list, where basic_width elements are already sorted
+		for (int i = 0; i <= num_of_threads-1; i++) {
+			thread_list.emplace_back();
+			if (i != num_of_threads-1) {
+				restack(input,thread_list.at(i).data, ceil(input_size/num_of_threads));
+				thread_list.at(i).t = thread(merge_sort<T>, ref(thread_list.at(i).data), ref(basic_width));
+			}
+			else {
+				restack(input,thread_list.at(i).data, input.size());
+				thread_list.at(i).t = thread(merge_sort<T>, ref(thread_list.at(i).data), ref(basic_width));
+			}
+		}
+		//end all threads and move data into destination list
+		for (int i = 0; i <= thread_list.size()-1; i++ ) {
+			thread_list.at(i).t.join();
+			restack(thread_list.at(i).data, input, thread_list.at(i).data.size());
+		}
+
+		//adapt parameters
+		thread_list.erase(thread_list.begin(), thread_list.end());
+		basic_width = ceil(input_size/num_of_threads);
+		num_of_threads = floor(num_of_threads/2);
+	}
+
+}
+\end{lstlisting}
+Auch bei dieser Implementierung wird die Quellliste als Zielliste verwendet.\\[0.25 cm]
+Im Hauptprogramm wird nach der Feststellung des Eingabetyps aus den Kommandozeilenargumenten, die jeweilig passende Ausprägung der Templatefunktion \texttt{perform\_sorting} aufgerufen. In dieser werden die restlichen Kommandozeilenargumente ausgewertet und die jeweils passenden \ac{I/O} Oparationen durchgeführt. Dabei werden die Eingabedaten entweder aus einer Datei eingelesen oder mithilfe der Funktion \texttt{generate\_random\_list} zufällig erzeugt und in eine Instanz der Klasse \texttt{data\_row} geschrieben. Von diesem Objekt wird nun die jeweilige Sortiermethode aufgerufen.
+\begin{lstlisting}
+data_row<T> sort;
+[...]
+if (user_arguments.use_parallel) {
+	sort.parallel_merge_sort_data(); //sort parallel if option is set
+}
+else {
+	sort.merge_sort_data(); //else sort sequential
+}
+\end{lstlisting}
+Neben der Bibliothek \texttt{libmergesort}, wird ebenfalls die Bibliothek \texttt{liberror} (Fehlerklassen) und die Bibliothek \texttt{libcsv} (\ac{CSV} Parsen und Erstellen) verwendet.
+Der gesamte Quellcode des Programms, sowie der benutzten Bibliotheken und kompilierte Programmdateien für Linux und Windows befindet sich auf der beigelegten CD. Genaueres ist dem Anlagenverzeichnis zu entnehmen.\\[0.25 cm]
+Im folgenden Kapitel wird auf die Anwendung der Software, besonders auf die möglichen Argumente eingegangen.
+
+\subsection{Verwendung der Software}
+Um die Software \texttt{merge\_sort\_list} zu verwenden, muss die für das jeweilige Betriebssystem passende Programmdatei (\texttt{sort\_lin} bzw. \texttt{sort\_win.exe}) mit der Kommandozeile ausgeführt werden. Die möglichen Kommandozeilenargumente sind in \textit{Tabelle \ref{arguments_merge_sort_list}} aufgeführt.\\
+Für ein paralleles Sortieren einer zufällig erzeugten Liste von integer Werten der Länge 100000 mit Werten von 0 bis 999999 und der Ausgabe der Prozessdaten in die Konsole und in die Datei \texttt{results.csv} ergibt sich also folgender Aufruf unter Windows:\\[0.25 cm]
+\texttt{sort\_win.exe -t int -d -p -O results.csv -r 100000 0 999999}
+
+\subsection{Messdatenerfassung und Auswertung}
+Um die Effektivität des sequentiellen und des parallelen Mergesortalgorithmus in der realen Anwendung empirisch vergleichen zu können, wurden Laufzeitmessungen an beiden Algorithmen bei steigender Listenlänge durchgeführt.\\[0.25 cm]
+Um die Messungen durchzuführen wurde das Programm \texttt{merge\_sort\_list} mithilfe eines Linux Shell Scriptes mehrfach hintereinander aufgerufen, bei einer Messreihe in der sequentiellen, bei einer in der parallelen Version. Die Daten wurden dabei durch den Parameter -r Zufällig im Bereich von 0 bis 99999999 erzeugt. Begonnen wurde mit einer Listenlänge von 10000 Elementen. Mit einer Schrittweite von 10000 Elementen wurde diese bis auf 5000000 erhöht. Damit ergeben sich 500 Datenpunkte, welche mithilfe des -O Parameters in die Messdatendatei geschrieben wurden. Die Daten des Testsystems lassen sich der \textit{Tabelle \ref{testsystem}} entnehmen. Die Messdaten befinden sich als \ac{CSV} Dateien oder in einem Tabellenkalkulationsdokument, zusammen mit den Rechnungen, welche nachfolgend aufgeführt werden, in den Anlagen. Näheres ist dem Anlagenverzeichnis zu entnehmen.\\[0.25 cm]
+In \textit{Abbildung \ref{laufzeit}} sind die Messwerte grafisch dargestellt. Die Graphen weisen eine näherungsweise lineare Tendenz auf. Dies ist positiv zu beurteilen, da Algorithmen, deren Laufzeit konstant (oder mit kleiner werdendem Anstieg) zunimmt sehr gut skalierbar sind.  Sie haben (nahezu) einen gemeinsamen Ursprung, doch die Laufzeit des sequentiellen Algorithmus nimmt deutlich schneller zu, als die des parallelen, weshalb der Graph einen höheren Anstieg aufweist.\\
+Berechnet man basierend auf den Wertepaaren den durchschnittlichen Speedup der Lösung erhält man den Wert
+\begin{align}
+\bar{S}(n,4)=3,089
+\end{align}
+Darauf basierend lässt sich auch die Effizienz der Lösung ermitteln. Die durchschnittliche Effizienz beträgt
+\begin{align}
+\bar{E}(n,4)=0,772
+\end{align}
+Daran erkennt man, dass etwa ein viertel der Gesamtleistung des Systems auf die Verwaltungsaufwendungen entfällt, was der Leistung eines gesamten Rechenkerns entspricht. Dennoch ist die Effektivität des parallelen Algorithmus bei einem Speedup von 3 deutlich höher. Die Summe aller Teilzeiten der gesamten Messung beläuft sich bei der sequentiellen Variante auf
+\begin{align}
+T_{ges_{p=1}}=\sum_{i=1}^{500} T(i*10000,1)=12074s
+\end{align}
+bei der parallelen Implementierung beträgt diese nur
+\begin{align}
+T_{ges_{p=4}}=\sum_{i=1}^{500} T(i*10000,4)=3870s
+\end{align}
+Für viele Anwendungsfälle wäre dies ein lohnenswerter Zuwachs.
+
+\section{Algorithmenvergleich}
+Bei der zweiten Anwendung \texttt{merge\_sort\_bubble\_sort} handelt es sich um eine Software, welche die beiden Algorithmen Bubblesort und Mergesort direkt miteinander vergleicht, indem sie gleichzeitig auf zwei verschiedenen Threads ausgeführt werden. Ziel ist es durch Ausgaben in der Konsole den Geschwindigkeitsunterschied der beiden Algorithmen zu visualisieren, was u.A. Vorteile für die Didaktik beim Vermitteln von Algorithmeneffizienzen/-effektivitäten.\\
+Dieser Sachverhalt lässt sich in \textit{Abbildung \ref{compare}} erkennen. Auf der linken Seite wurde das sortieren mit Mergesort (Algorithmus 1) bereits beendet, während Bubblesort (Algorithmus 2) noch arbeitet. Auf der rechten Seite wurden beide beendet. Damit lässt sich der Laufzeitunterschied wirkungsvoller darstellen.
+
+\section{Wirkungsweise und Aufbau}
+Das Programm selbst implementiert die beiden Sortieralgorithmen und führt die Nutzerkommunikation und die \ac{I/O} Zugriffe durch.\\
+Der parallele Vergleichsalgorithmus ist in der Template Klasse \texttt{compare\_base<T>} aus der Bibliothek \texttt{libcompare} definiert. Diese Klasse bietet Speicherplatz des Template Typs \texttt{T} für Quell- und Ergebnisdaten der Vergleichsdaten, sowie Datenstrukturen für die Laufzeiten der Algorithmen. Außerdem existierenverschiedene Kon- und Destruktoren, sowie get- und set-Funktionen, um auf die Daten der Klasse zugreifen zu können. \texttt{compare\_base<T>} enthält zwei rein virtuelle Funktionen \texttt{virtual void algorithm\_1 (const T\& input, T\& result) = 0} und \texttt{virtual void algorithm\_2 (const T\& input, T\& result) = 0} welche durch die  beiden Methoden\\ \texttt{compare\_base<T>::compare\_algorithms()} und \\ \texttt{compare\_base<T>::compare\_algorithms\_verbose()} miteinander verglichen werden können. Rein virtuelle Funktionen, sind Funktionen die in einer Klasse deklariert, aber explizit nicht definiert werden. Dadurch lassen sich keine Instanzen dieser Klasse erzeugen. Die Klasse kann allerdings abgeleitet werden. In der abgeleiteten Klasse können die virtuellen Funktionen dann definiert werden. Dies eignet sich gut, um Schnittstellen für verallgemeinerte Funktionalitäten zu implementieren. in diesem Fall wird \texttt{compare\_base<T>} zu \texttt{compare\_class: public compare\_base<deque<T> >} im Programm\\ \texttt{merge\_sort\_bubble\_sort} abgeleitet, wo die beiden Algorithmen definiert werden.\\
+In \texttt{algorithm\_1} wird der gleiche Mergesortalgorithmus wie im Programm \texttt{merge\_sort\_list} implementiert.
+
+\begin{lstlisting}
+template<typename T>
+void compare_class<T>::algorithm_1(const deque<T>& input, deque<T>& result) { // merge sort
+	int input_size = input.size();
+	result = input;
+
+	//repeat the merging algorithm until input is sorted completely
+	for (int list_width = 1; list_width < input_size; list_width *= 2) {
+		deque<T> buffer;
+		restack(result, buffer, result.size());
+
+		//cycle through  the list and take list pairs with the size list_width
+		while (buffer.size() > 0) {
+			deque<T> list1;
+			deque<T> list2;
+			if (buffer.size() >= list_width) {
+				restack(buffer, list1, list_width); //move list_width elements into list1
+			}
+			else {
+				//if less then list_width elements are remaining, move all remaining elements into list1
+				restack(buffer, list1, buffer.size());
+			}
+			if (buffer.size() >= list_width) {
+				restack(buffer, list2, list_width); //move list_width elements into list2
+			}
+			else {
+				//if less then list_width elements are remaining, move all remaining elements into list2
+				restack(buffer, list2, buffer.size());
+			}
+			deque<T> return_buffer = merge_sort_merge(list1, list2); //merge the lists (list2 will always
+																	//be the smaller list)
+			restack(return_buffer, result, return_buffer.size()); //move the result into result list
+		}
+
+	}
+}
+
+deque<T> merge_sort_merge(deque<T>& list1, deque<T>& list2) { //list2 will always be the smaller list
+	//if list2 is empty use list1 as return list
+	if (list1.size() > 0 && list2.size()==0) {
+		return list1;
+	}
+	else {
+		deque<T> listret;
+
+		//cycle trough lists and compare the first elements, move the smaller element into result list
+		while (list1.size() > 0 && list2.size() >0) {
+			if (list1.at(0)<list2.at(0)) {
+				restack(list1, listret, 1);
+			}
+			else {
+				restack(list2, listret, 1);
+			}
+		}
+		// if on list is empty, move all remaining elements into result list
+		if (list1.size()>0) {
+			restack(list1, listret, list1.size());
+		}
+		else if (list2.size()>0) {
+			restack(list2, listret, list2.size());
+		}
+		return listret;
+	}
+
+}
+
+\end{lstlisting}
+In \texttt{algorithm\_2} wird der Bubblesortalgoritmus, wie in \textit{Abschnitt \ref{bubblesort}} beschrieben implementiert.
+\begin{lstlisting}
+template<typename T>
+void compare_class<T>::algorithm_2(const deque<T>& input, deque<T>& result) { //bubble sort
+	result = input;
+	for (int i = result.size(); i > 1; i--) {
+		for (int j = 0; j < i-1; j++) {
+			if (result.at(j) > result.at(j+1)) {
+				switch_positions(result, j, j+1);
+			}
+		}
+	}
+
+}
+\end{lstlisting}
+Außerdem enthält \texttt{compare\_class<T>} einige zusätzliche Methoden, etwa um Daten aus \ac{CSV} Dateien einzulesen oder die Länge der Datenliste auszugeben.\\[0.25 cm]
+Die Algorithmen werden durch die Methoden\\ \texttt{compare\_base<T>::compare\_algorithms()} und \\
+\texttt{compare\_base<T>::compare\_algorithms\_verbose()} miteinander verglichen.\\
+Diese starten zwei neue Threads, in denen je eine der beiden privaten Methoden \texttt{compare\_base<T>::start\_algorithm\_1()} und\\ \texttt{compare\_base<T>::start\_algorithm\_2()} bzw.\\ \texttt{compare\_base<T>::start\_algorithm\_1\_verbose()} und\\ \texttt{compare\_base<T>::start\_algorithm\_2\_verbose()} ausgeführt werden. Diese wiederum rufen jeweils die Methode \texttt{algorithm\_1} bzw. \texttt{algorithm\_2} auf. Die \textit{verbose} Variante des Vergleichs gibt jeweils die Prozessdaten (Listenlänge, Laufzeit, etc.) in den angegebenen Ausgabestream  (z.B. die Standardkonsolenausgabe) aus. Ansonsten sind beide Varianten identisch (aus Platzgründen wird hier nur die \textit{verbose} Variante aufgeführt).
+
+\begin{lstlisting}
+template<typename T>
+void compare_base<T>::start_algorithm_1_verbose(compare_base& object, T& data, T& result, ostream& output) {
+	output << "Algorithm 1 started\n";
+	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+	object.algorithm_1(data, result); //start algorithm 1
+	std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+	output << "Algorithm 1 ended\n";
+	operation_time_algorithm_1 = stop - start;
+}
+
+template<typename T>
+void compare_base<T>::start_algorithm_2_verbose(compare_base& object, T& data, T& result, ostream& output) {
+	output << "Algorithm 2 started\n";
+	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+	object.algorithm_2(data, result); //start thread of algorithm 1
+	std::chrono::steady_clock::time_point stop = std::chrono::steady_clock::now();
+	output << "Algorithm 2 ended\n";
+	operation_time_algorithm_2 = stop - start;
+}
+
+template<typename T>
+void compare_base<T>::compare_algorithms_verbose(ostream& output) {
+	thread thread_start_algorithm_1(&compare_base<T>::start_algorithm_1_verbose, this, ref(*this), ref(data), ref(result_algorithm_1), ref(output));
+	thread thread_start_algorithm_2(&compare_base<T>::start_algorithm_2_verbose, this, ref(*this), ref(data), ref(result_algorithm_2), ref(output));
+	thread_start_algorithm_1.join();
+	thread_start_algorithm_2.join();
+	output << "Duration of Algorithm 1: " << get_operation_time_algorithm_1_string() << "ms\n";
+	output << "Duration of Algorithm 2: " << get_operation_time_algorithm_2_string() << "ms\n";
+	if (vaildate_results()) {
+		output << "The results are equal\n";
+	}
+	else {
+		output << "The results are NOT equal\n";
+	}
+}
+\end{lstlisting}
+Wenn in einem Thread eine Elementfunktion aufgerufen wird muss als erster Parameter an diese die Instanz der Klasse übergeben werden, in der sie ausgeführt werden soll. Dies wird durch die Übergabe von \texttt{this} in den Zeilen 23 und 24 des obigen Listings realisiert. Die Methode muss diesen Parameter akzeptieren (siehe Zeile 2: \texttt{[...] compare\_base\& object [...]}).\\
+In der main Funktion des Programms \texttt{merge\_sort\_bubble\_sort} wird nach der Feststellung des Eingabetyps aus den Kommandozeilenargumenten, die jeweilig passende Ausprägung der Templatefunktion \texttt{perform\_sorting} aufgerufen. In dieser werden die restlichen Kommandozeilenargumente ausgewertet und die jeweils passenden \ac{I/O} Oparationen durchgeführt. Dabei werden die Eingabedaten entweder aus einer Datei eingelesen oder mithilfe der Funktion \texttt{generate\_random\_list} zufällig erzeugt und in eine Instanz der Klasse \texttt{compare\_class} geschrieben. Von diesem Objekt wird nun die jeweilige Vergleichsmethode aufgerufen.
+\begin{lstlisting}
+compare_class<T> compare;
+[...]
+if (user_arguments.display_information) { //sort with verbose output if option is set
+	cout << "List length: " << compare.get_data_length() << '\n';
+	compare.compare_algorithms_verbose(cout);
+}
+	else { //else sort with non-verbose version
+	compare.compare_algorithms();
+}
+\end{lstlisting}
+Neben der Bibliothek \texttt{libmercompare}, wird ebenfalls die Bibliothek \texttt{liberror} (Fehlerklassen) und die Bibliothek \texttt{libcsv} (\ac{CSV} Parsen und Erstellen) verwendet.
+Der gesamte Quellcode des Programms, sowie der benutzten Bibliotheken und kompilierte Programmdateien für Linux und Windows befindet sich auf der beigelegten CD. Genaueres ist dem Anlagenverzeichnis zu entnehmen.\\[0.25 cm]
+Die Klasse \texttt{compare\_base<T>} ist natürlich nicht nur auf Sortieralgorithmen beschränkt. Die umgebende Datenstruktur bietet die Möglichkeit eine Vielzahl von Algorithmen auf diese Weise zu vergleichen.
+
+\subsection{Verwendung der Software}
+Um die Software \texttt{merge\_sort\_bubble\_sort} zu verwenden, muss die für das jeweilige Betriebssystem passende Programmdatei (\texttt{compare\_lin} bzw. \\ \texttt{compare\_win.exe}) mit der Kommandozeile ausgeführt werden. Die möglichen Kommandozeilenargumente sind in \textit{Tabelle \ref{arguments_compare}} aufgeführt.\\
+Für ein Vergleich der Algorithmen bei einer zufällig erzeugten Liste von integer Werten der Länge 100000 mit Werten von 0 bis 999999 und der Ausgabe der Prozessdaten in die Konsole ergibt sich also folgender Aufruf unter Windows:\\[0.25 cm]
+\texttt{sort\_win.exe -t int -d -r 100000 0 999999}

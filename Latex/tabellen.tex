@@ -1,0 +1,84 @@
+\chapter*{Tabellen}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|l|}
+\hline
+\textbf{Kriterium} & \textbf{Wert}\\
+\hline
+Betriebssystem & Ubuntu 14.04LTS 64bit\\
+\hline
+Gerät & MSI GE60 2PE Apache Pro\\
+\hline
+Mainboard & MS-16GF (REV:0.B)\\
+\hline
+Prozessor & Intel(R) Core(TM) i7-4710HQ\\
+Kerne & 4\\
+Threads (SMT) & 8\\
+Taktfrequenz & 2.5GHz - 3.5GHz\\
+Architektur & 64bit\\
+\hline
+\ac{RAM} & Fujitsu AM1L16BC8R2-B1QS\\
+Speicher & 8GB\\
+Art & DDR3 (1600MHz)\\
+\hline
+C++ Compiler & g++\\
+Version & 4:4.8.2-1ubu\\
+\hline
+\end{tabular}
+\caption{Technische Daten des Testsystems}
+\label{testsystem}
+\end{center}
+\end{table}
+
+\begin{table}[h]
+\begin{tabular}{|p{5cm}|p{5cm}|p{4cm}|}
+\hline
+\textbf{Argument} & \textbf{Bedeutung} & \textbf{Argumente}\\
+\hline
+\texttt{-t; - -type} & Datentyp der Liste(n) (Bezeichner entsprechen den C++ Datentypen)& int, short, long, double, float\\
+\hline
+\texttt{-d; - -display} (optional) & Prozessdaten (Listenlänge, Sortierbegin-/ende, Sortierdauer) ausgeben (besteht die Datei werden die Daten angehangen)& keine\\
+\hline
+\texttt{-p; - -parallel} (optional) & Parallelen Sortieralgorithmus verwenden& keine\\
+\hline
+\texttt{-O; \mbox{- -output-information}} (optional) & Prozessdaten (Listenlänge, Sortierdauer) als \ac{CSV} Datei ausgeben& Dateipfad\\
+\hline
+\texttt{-i; \mbox{- -input}} & Als Datenquelle \ac{CSV} Datei verwenden (entweder -r oder -i muss verwendet werden)& Dateipfad\\
+\hline
+\texttt{-o; \mbox{- -output}} (optional) & Sortierte Daten als \ac{CSV} Datei ausgeben (besteht die Datei werden die Daten angehangen)& Dateipfad\\
+\hline
+\texttt{-r; \mbox{- -random}} & Zufällig erzeugte Daten als Quelle verwenden (entweder -r oder -i muss verwendet werden)& Listenlänge (Ganzzahl, Standard: 1)\\
+&& Geringster Wert (Typ der Liste, Standard: 0)\\&&\\
+&& Höchster Wert (Typ der Liste, Standard: 1)\\
+\hline
+\end{tabular}
+\caption{Kommandozeilenargumente des Programme merge\_sort\_list}
+\label{arguments_merge_sort_list}
+\end{table}
+
+
+
+\begin{table}[h]
+\begin{tabular}{|p{5cm}|p{5cm}|p{4cm}|}
+\hline
+\textbf{Argument} & \textbf{Bedeutung} & \textbf{Argumente}\\
+\hline
+\texttt{-t; - -type} & Datentyp der Liste(n) (Bezeichner entsprechen den C++ Datentypen)& int, short, long, double, float\\
+\hline
+\texttt{-d; - -display} (optional) & Prozessdaten (Listenlänge, Sortierbegin-/ende, Sortierdauer) ausgeben (besteht die Datei werden die Daten angehangen)& keine\\
+\hline
+\texttt{-O; \mbox{- -output-information}} (optional) & Prozessdaten (Listenlänge, Sortierdauer) als \ac{CSV} Datei ausgeben& Dateipfad\\
+\hline
+\texttt{-i; \mbox{- -input}} & Als Datenquelle \ac{CSV} Datei verwenden (entweder -r oder -i muss verwendet werden)& Dateipfad\\
+\hline
+\texttt{-o; \mbox{- -output}} (optional) & Sortierte Daten als \ac{CSV} Datei ausgeben (besteht die Datei werden die Daten angehangen)& Dateipfad\\
+\hline
+\texttt{-r; \mbox{- -random}} & Zufällig erzeugte Daten als Quelle verwenden (entweder -r oder -i muss verwendet werden)& Listenlänge (Ganzzahl, Standard: 1)\\
+&& Geringster Wert (Typ der Liste, Standard: 0)\\&&\\
+&& Höchster Wert (Typ der Liste, Standard: 1)\\
+\hline
+\end{tabular}
+\caption{Kommandozeilenargumente des Programme merge\_sort\_bubble\_sort}
+\label{arguments_compare}
+\end{table}
