@@ -27,7 +27,7 @@ Die Software, die im Rahmen dieser Arbeit entwickelt wurde befindet sich zusätz
 + <a href="https://github.com/DevWurm/error_library">error_library (liberror)</a>
 + <a href="https://github.com/DevWurm/parallel_merge_sort_library">parallel_merge_sort_library (libmergesort)</a>
 + <a href="https://github.com/DevWurm/parallel_merge_sort_lists">parallel_merge_sort_lists</a>
-+ <a href="https://github.com/DevWurm/merge_bubble_sort_compare">merge_bubble_sort_compare</a>
++ <a href="https://github.com/DevWurm/merge_bubble_sort_compare">merge_bubble_sort_compare</a><br>
 Die Software der Arbeit ist unter der GPL Lizenz veröffentlicht.
 
 ## Veröffentlichung
